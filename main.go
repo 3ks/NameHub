@@ -1,5 +1,7 @@
 package main
 
-func main() {
+import "github.com/3ks/NameHub/cmd"
 
+func main() {
+	cmd.Execute()
 }
