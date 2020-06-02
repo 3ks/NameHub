@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/spf13/afero"
 )
@@ -13,93 +14,137 @@ const (
 	//Total = 37 * 37 * 37 * 37 * 37
 )
 
+var (
+	fs = afero.NewOsFs()
+	//numberMap = make(map[int32]int32)
+	numberMap sync.Map
+)
+
 func Username() {
 	initDir()
 
-	// gen username with file.
-	fs := afero.NewOsFs()
-	currentFile := "./1/all"
-	var err error
-	var file afero.File
-
-	// first file
-	file, err = fs.Create(currentFile)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	for i := 0; i < Total; i++ {
-		fileName, username := genUsernameAndFile(i)
-		if fileName == "" {
-			continue
-		}
-		if fileName != currentFile {
-			_ = file.Close()
-			currentFile = fileName
-			exist, err := afero.Exists(fs, fileName)
-			if err != nil {
-				panic(err.Error())
-			}
-			if exist {
-				file, err = fs.Open(fileName)
-				if err != nil {
-					panic(fmt.Errorf("open file %s fail.err: %v", fileName, err.Error()))
-				}
-			} else {
-				file, err = fs.Create(fileName)
-			}
-		}
-		_, _ = file.WriteString(username + "\n")
-	}
-	_ = file.Close()
+	gen1()
+	gen2()
+	gen3()
+	gen4()
 }
 
 // switchFile
-// 0-9 equal 0-9
-// 10-35 equal a-z
-// 36 equal -
-func genUsernameAndFile(file int) (fileName, username string) {
-	for {
-		letter := '-'
-		rem := file % 37
-		switch {
-		case 0 <= rem && rem <= 9:
-			letter = int32(rem + 48)
-		case 10 <= rem && rem <= 35:
-			letter = int32(rem + 97 - 10)
-		default:
-			letter = '-'
-		}
-
-		username = fmt.Sprintf("%s%s", string(letter), username)
-		file /= 37
-		if file <= 0 {
-			break
-		}
+// 0 equal -
+// 1-10 equal 0-9
+// 11-36 equal a-z
+func number2Letter(nums ...int32) (name string) {
+	for _, v := range nums {
+		//name = fmt.Sprintf("%s%s", name, string(numberMap[v]))
+		value, _ := numberMap.Load(v)
+		name = fmt.Sprintf("%s%s", name, string(value.(int32)))
 	}
-
-	if strings.HasPrefix(username, "-") || strings.HasSuffix(username, "-") {
-		return "", ""
-	}
-
-	switch len(username) {
-	case 1:
-		fileName = "./1/all"
-	case 2:
-		fileName = "./2/all"
-	case 3:
-		fileName = "./3/all"
-	case 4:
-		fileName = fmt.Sprintf("./4/%s", username[:1])
-	default:
-		return "", ""
+	if !validUsername(name) {
+		return ""
 	}
 	return
 }
 
+func gen1() {
+	f1, err := fs.Create("./1/all")
+	if err != nil {
+		panic(err.Error())
+	}
+	var i int32
+	for i = 0; i < 37; i++ {
+		s := number2Letter(i)
+		if s == "" {
+			continue
+		}
+		_, _ = f1.WriteString(s + "\n")
+	}
+}
+
+func gen2() {
+	f1, err := fs.Create("./2/all")
+	if err != nil {
+		panic(err.Error())
+	}
+	var i, j int32
+	for i = 0; i < 37; i++ {
+		for j = 0; j < 37; j++ {
+			s := number2Letter(i, j)
+			if s == "" {
+				continue
+			}
+			_, _ = f1.WriteString(s + "\n")
+		}
+	}
+}
+
+func gen3() {
+	f1, err := fs.Create("./3/all")
+	if err != nil {
+		panic(err.Error())
+	}
+	var i, j, k int32
+	for i = 0; i < 37; i++ {
+		for j = 0; j < 37; j++ {
+			for k = 0; k < 37; k++ {
+				s := number2Letter(i, j, k)
+				if s == "" {
+					continue
+				}
+				_, _ = f1.WriteString(s + "\n")
+			}
+		}
+	}
+}
+
+func gen4() {
+	wg := sync.WaitGroup{}
+	var i int32
+	for i = 1; i < 37; i++ {
+		wg.Add(1)
+		go func(i int32) {
+			//f4, err := fs.Create(fmt.Sprintf("./4/%s.txt", string(numberMap[i])))
+			value, _ := numberMap.Load(i)
+			f4, err := fs.Create(fmt.Sprintf("./4/%s.txt", string(value.(int32))))
+			if err != nil {
+				panic(err.Error())
+			}
+			count := 0
+			var j, k, l int32
+			for j = 0; j < 37; j++ {
+				for k = 0; k < 37; k++ {
+					for l = 0; l < 37; l++ {
+						count++
+						s := number2Letter(i, j, k, l)
+						if s == "" {
+							continue
+						}
+						_, err = f4.WriteString(s + "\n")
+						if err != nil {
+							panic(err.Error())
+						}
+					}
+				}
+			}
+			fmt.Printf("file: %v,count: %v\n", i, count)
+			_ = f4.Close()
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+}
+
+func validUsername(username string) bool {
+	if len(username) < 1 {
+		return false
+	}
+	if strings.HasPrefix(username, "-") || strings.HasSuffix(username, "-") {
+		return false
+	}
+	return true
+}
+
 func Clean() {
 	// clean all of dir and files.
-	fs := afero.NewOsFs()
 	_ = fs.RemoveAll("./1")
 	_ = fs.RemoveAll("./2")
 	_ = fs.RemoveAll("./3")
@@ -107,7 +152,6 @@ func Clean() {
 }
 
 func initDir() {
-	fs := afero.NewOsFs()
 	_ = fs.RemoveAll("./1")
 	_ = fs.RemoveAll("./2")
 	_ = fs.RemoveAll("./3")
@@ -116,4 +160,18 @@ func initDir() {
 	_ = fs.Mkdir("./2", os.ModeDir)
 	_ = fs.Mkdir("./3", os.ModeDir)
 	_ = fs.Mkdir("./4", os.ModeDir)
+	var rem int32
+	for rem = 0; rem < 37; rem++ {
+		switch {
+		case 0 == rem:
+			//numberMap[rem] = '-'
+			numberMap.Store(rem, '-')
+		case 1 <= rem && rem <= 10:
+			numberMap.Store(rem, rem+48-1)
+			//numberMap[rem] = rem + 48 - 1
+		default:
+			numberMap.Store(rem, rem+97-11)
+			//numberMap[rem] = rem + 97 - 11
+		}
+	}
 }
