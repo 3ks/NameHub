@@ -9,14 +9,8 @@ import (
 	"github.com/spf13/afero"
 )
 
-const (
-	Total = 37 * 37 * 37
-	//Total = 37 * 37 * 37 * 37 * 37
-)
-
 var (
-	fs = afero.NewOsFs()
-	//numberMap = make(map[int32]int32)
+	fs        = afero.NewOsFs()
 	numberMap sync.Map
 )
 
@@ -35,7 +29,6 @@ func Username() {
 // 11-36 equal a-z
 func number2Letter(nums ...int32) (name string) {
 	for _, v := range nums {
-		//name = fmt.Sprintf("%s%s", name, string(numberMap[v]))
 		value, _ := numberMap.Load(v)
 		name = fmt.Sprintf("%s%s", name, string(value.(int32)))
 	}
@@ -102,7 +95,6 @@ func gen4() {
 	for i = 1; i < 37; i++ {
 		wg.Add(1)
 		go func(i int32) {
-			//f4, err := fs.Create(fmt.Sprintf("./4/%s.txt", string(numberMap[i])))
 			value, _ := numberMap.Load(i)
 			f4, err := fs.Create(fmt.Sprintf("./4/%s.txt", string(value.(int32))))
 			if err != nil {
@@ -160,18 +152,20 @@ func initDir() {
 	_ = fs.Mkdir("./2", os.ModeDir)
 	_ = fs.Mkdir("./3", os.ModeDir)
 	_ = fs.Mkdir("./4", os.ModeDir)
+
+	// switchFile
+	// 0 equal -
+	// 1-10 equal 0-9
+	// 11-36 equal a-z
 	var rem int32
 	for rem = 0; rem < 37; rem++ {
 		switch {
 		case 0 == rem:
-			//numberMap[rem] = '-'
 			numberMap.Store(rem, '-')
 		case 1 <= rem && rem <= 10:
 			numberMap.Store(rem, rem+48-1)
-			//numberMap[rem] = rem + 48 - 1
 		default:
 			numberMap.Store(rem, rem+97-11)
-			//numberMap[rem] = rem + 97 - 11
 		}
 	}
 }
